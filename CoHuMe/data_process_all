@@ -1,0 +1,57 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Load and inspect the data to understand its structure
+data = pd.read_csv('sweep_0.csv')
+
+# Print the first few rows of the dataframe to inspect its structure
+print(data.head())
+
+# Assuming the columns are unnamed, you can refer to them by index
+x = data.iloc[:, 0].values  # Assuming the first column is x
+y = data.iloc[:, 1].values  # Assuming the second column is y
+
+# Determine the number of points to select (top 10%)
+num_points = int(len(y) * 0.1)
+
+# Sort indices based on y-values in descending order and select top 10%
+sorted_indices = np.argsort(y)[::-1][:num_points]
+
+# Use the selected points for fitting
+x_selected = x[sorted_indices]
+y_selected = y[sorted_indices]
+
+# Fit a 10th order polynomial to the selected points
+coefficients = np.polyfit(x_selected, y_selected, 10)
+poly = np.poly1d(coefficients)
+
+# Find the peak of the polynomial
+x_peak = x_selected[np.argmax(poly(x_selected))]
+# Plot the data and polynomial around the peak
+plt.figure(figsize=(10, 6))
+plt.scatter(x, y, label='All Data Points', color='blue')
+plt.scatter(x_selected, y_selected, color='red', label='Top 10% Points')  # Selected points in red
+
+# Determine the range around the peak to plot the polynomial
+range_percent = 0.05  # 10% around the peak
+x_range_min = x_peak - (range_percent * (max(x_selected) - min(x_selected)))
+x_range_max = x_peak + (range_percent * (max(x_selected) - min(x_selected)))
+
+# Generate x values for plotting the polynomial within the specified range
+x_range = np.linspace(x_range_min, x_range_max, 1000)
+
+# Plot the polynomial within the specified range
+plt.plot(x_range, poly(x_range), color='black', label='10th Order Polynomial')
+
+# Mark the peak on the plot
+plt.scatter(x_peak, poly(x_peak), color='green', marker='x', s=100, label=f'Peak at x={x_peak:.2f}, y={poly(x_peak):.2f}')
+plt.title('10th Order Polynomial Fit to Top 10% Highest Points (Cavidade vazia)')
+plt.xlabel('Vo (V)')
+plt.ylabel('Frequency (GHz)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Print the peak of the polynomial
+print(f"Peak of the polynomial: x = {x_peak:.2f}, y = {poly(x_peak):.2f}")
