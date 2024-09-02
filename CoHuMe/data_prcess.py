@@ -5,23 +5,12 @@ import matplotlib.pyplot as plt
 # Load data for each dataset
 datasets = [
     {
-        'datafile': 'sweep_0.csv',
+        'datafile': 'Final-V2_200_3.csv',
         'title': 'Dataset 1',
         'color': 'blue',
         'range_percent': 0.05
     },
-    {
-        'datafile': 'sweep_1.csv',
-        'title': 'Dataset 2',
-        'color': 'red',
-        'range_percent': 0.03
-    },
-    {
-        'datafile': 'sweep_2.csv',
-        'title': 'Dataset 3',
-        'color': 'green',
-        'range_percent': 0.08
-    }
+
 ]
 
 plt.figure(figsize=(12, 8))

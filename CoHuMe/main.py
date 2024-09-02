@@ -23,7 +23,7 @@ i2c_ports = {"scl" : Pin(9), "sda" : Pin(8), "freq" : 100000}
 log_types = ["INFO", "WARNING", "ERROR", "DEBUG"]
 reference_power = 0
 
-LOG_SHUTDOWN = False
+LOG_SHUTDOWN = True
 
 def create_files():
     found_running = 0
@@ -262,14 +262,24 @@ def set_oscillator_v (i2c, device, voltage):
     if (i != 2):
         print_and_log("ERROR", "Error setting the oscilator frequency. The DAC did not respond with sucess.")
 
-def sweep(i2c, device, average=10, verbose=False):
+def sweep(i2c, device, average=1, n_steps=100, verbose=False, start_freq = 2.11*10**9):
     #Clear the sweep file
     with open(sweep_file, 'w') as file:
         file.write("Frequency,Power\n")
 
-    for i in range(0, 440):
+    list_ = []
+
+    '''
+    440 steps from 2.11GHz to 2.55GHz so 440 steps of 1MHz
+    2.55-2.11 = 0.44 GHz
+    '''
+    print_and_log("INFO", "Starting sweep...")
+    print_and_log("INFO", "Bandwidth for each step is " + str(0.44*10**6/n_steps) + "KHz.")
+
+    for i in range(0, n_steps):
         running_led.value(1)
-        freq = 2.11*10**9 + i*1000000
+        freq = start_freq + i*0.44*10**9/n_steps
+        #freq = 2.25*10**9 + i*0.3*10**9/n_steps
         #freq = 2.38*10**9 + i*1000000
         set_oscilator_frequency(i2c, device, freq)
         #Avreage the power
@@ -279,14 +289,66 @@ def sweep(i2c, device, average=10, verbose=False):
 
         x = x / average
 
+        list_.append(x)
+
         with open(sweep_file, 'a') as file:
             file.write(str(freq) + "," + str(x) + "\n")
 
         if verbose:
-            print("Average power for freq " + str(freq) + " is: " + str(x))
+            print_and_log("INFO", "Average power for freq " + str(freq) + " is: " + str(x))
         running_led.value(0)
 
-    print("INFO", "Sweep finished.")
+        if freq > 2.55*10**9:
+            break
+
+    #print max power
+
+    print_and_log("INFO", "Sweep finished.")
+
+def adaptative_sweep(i2c, device, average=1, n_steps=100, verbose=False, start_freq=2.11*10**9, end_freq=2.55*10**9, power_threshold=0.5, min_step=1e6):
+    # Clear the sweep file
+    with open(sweep_file, 'w') as file:
+        file.write("Frequency,Power\n")
+
+    list_ = []
+
+    print_and_log("INFO", "Starting sweep...")
+
+    freq = start_freq
+    step_size = (end_freq - start_freq) / n_steps
+
+    while freq <= end_freq:
+        running_led.value(1)
+
+        # Set oscillator frequency
+        set_oscilator_frequency(i2c, device, freq)
+
+        # Average the power readings
+        power_sum = sum(get_rf_power() for _ in range(average))
+        avg_power = power_sum / average
+
+        list_.append(avg_power)
+
+        with open(sweep_file, 'a') as file:
+            file.write(f"{freq},{avg_power}\n")
+
+        if verbose:
+            print_and_log("INFO", f"Average power for freq {freq} is: {avg_power}")
+
+        running_led.value(0)
+
+        # Adjust step size based on the power reading
+        if avg_power > power_threshold:
+            # Decrease the step size when the signal is strong to get more points
+            step_size = max(step_size / 2, min_step)
+        elif avg_power < power_threshold:
+            # Increase the step size when the signal is weak
+            step_size = min(step_size * 2, (end_freq - start_freq) / n_steps)
+
+        # Update frequency for next step
+        freq += step_size
+
+    print_and_log("INFO", "Sweep finished.")
 
 '''def sweep(i2c, device, average=5, verbose=True):
     #Clear the sweep file
@@ -345,7 +407,9 @@ def __main__():
 
     print("\033[1;32;40mSystem Initialized.\033[0m")
 
-    sweep(i2c, i2c_device)
+    sweep(i2c, i2c_device, average=3, n_steps=200, verbose=True)
+
+    #set_oscillator_v(i2c, i2c_device, 3)
 
     '''while True:
         t = get_rf_power()
